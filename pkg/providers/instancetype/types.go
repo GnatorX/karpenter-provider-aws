@@ -46,7 +46,21 @@ const (
 )
 
 var (
-	instanceTypeScheme = regexp.MustCompile(`(^[a-z]+)(\-[0-9]+tb)?([0-9]+).*\.`)
+	// Regex to parse AWS instance type names: {category}{-size}{generation}{suffixes}{-flex}.{size}
+	// Examples: m5.xlarge, m5d.xlarge, r7iz.large, c6gn.xlarge, m7i-flex.large, u-24tb1.metal
+	// Group 1: Category (e.g., "m", "c", "r", "g", "inf", "u")
+	// Group 2: Optional high-memory suffix (e.g., "-24tb")
+	// Group 3: Generation number (e.g., "5", "6", "7")
+	// Group 4: Suffixes after generation (e.g., "d", "dn", "iz", "gn", "a")
+	// Group 5: Optional "-flex" suffix
+	instanceTypeScheme = regexp.MustCompile(`(^[a-z]+)(-[0-9]+tb)?([0-9]+)([a-z]*)(-flex)?\.`)
+
+	// Suffixes already represented by other well-known labels, excluded from instance-suffix:
+	// - 'a' (AMD) -> karpenter.k8s.aws/instance-cpu-manufacturer: amd
+	// - 'i' (Intel) -> karpenter.k8s.aws/instance-cpu-manufacturer: intel
+	// - 'g' (Graviton) -> kubernetes.io/arch: arm64
+	// - 'flex' is handled separately by karpenter.k8s.aws/instance-capability-flex
+	excludedInstanceTypeSuffixes = map[rune]bool{'a': true, 'i': true, 'g': true}
 )
 
 type ZoneData struct {
@@ -201,6 +215,7 @@ func computeRequirements(
 		scheduling.NewRequirement(v1.LabelInstanceGeneration, corev1.NodeSelectorOpDoesNotExist),
 		scheduling.NewRequirement(v1.LabelInstanceLocalNVME, corev1.NodeSelectorOpDoesNotExist),
 		scheduling.NewRequirement(v1.LabelInstanceSize, corev1.NodeSelectorOpDoesNotExist),
+		scheduling.NewRequirement(v1.LabelInstanceSuffix, corev1.NodeSelectorOpDoesNotExist),
 		scheduling.NewRequirement(v1.LabelInstanceGPUName, corev1.NodeSelectorOpDoesNotExist),
 		scheduling.NewRequirement(v1.LabelInstanceGPUManufacturer, corev1.NodeSelectorOpDoesNotExist),
 		scheduling.NewRequirement(v1.LabelInstanceGPUCount, corev1.NodeSelectorOpDoesNotExist),
@@ -234,10 +249,19 @@ func computeRequirements(
 		requirements.Add(scheduling.NewRequirement(v1.LabelCapacityReservationType, corev1.NodeSelectorOpDoesNotExist))
 	}
 	// Instance Type Labels
+	// Regex groups: [0]=full match, [1]=category, [2]=high-mem suffix, [3]=generation, [4]=suffixes, [5]=-flex
 	instanceFamilyParts := instanceTypeScheme.FindStringSubmatch(string(info.InstanceType))
-	if len(instanceFamilyParts) == 4 {
+	if len(instanceFamilyParts) == 6 {
 		requirements[v1.LabelInstanceCategory].Insert(instanceFamilyParts[1])
 		requirements[v1.LabelInstanceGeneration].Insert(instanceFamilyParts[3])
+		// Parse suffixes, excluding those already covered by other labels (a, i, g)
+		if suffixes := instanceFamilyParts[4]; suffixes != "" {
+			for _, suffix := range suffixes {
+				if !excludedInstanceTypeSuffixes[suffix] {
+					requirements.Get(v1.LabelInstanceSuffix).Insert(string(suffix))
+				}
+			}
+		}
 	}
 	instanceTypeParts := strings.Split(string(info.InstanceType), ".")
 	if len(instanceTypeParts) == 2 {

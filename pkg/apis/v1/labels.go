@@ -41,6 +41,7 @@ func init() {
 		LabelInstanceGeneration,
 		LabelInstanceSize,
 		LabelInstanceLocalNVME,
+		LabelInstanceSuffix,
 		LabelInstanceCPU,
 		LabelInstanceCPUManufacturer,
 		LabelInstanceCPUSustainedClockSpeedMhz,
@@ -143,6 +144,7 @@ var (
 	LabelInstanceGeneration                   = apis.Group + "/instance-generation"
 	LabelInstanceLocalNVME                    = apis.Group + "/instance-local-nvme"
 	LabelInstanceSize                         = apis.Group + "/instance-size"
+	LabelInstanceSuffix                       = apis.Group + "/instance-suffix"
 	LabelInstanceCPU                          = apis.Group + "/instance-cpu"
 	LabelInstanceCPUManufacturer              = apis.Group + "/instance-cpu-manufacturer"
 	LabelInstanceCPUSustainedClockSpeedMhz    = apis.Group + "/instance-cpu-sustained-clock-speed-mhz"

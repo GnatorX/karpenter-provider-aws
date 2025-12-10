@@ -269,6 +269,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 			// TODO: add back to test with a preconfigured reserved instance type
 			v1.LabelCapacityReservationID,
 			v1.LabelCapacityReservationType,
+			// instance-suffix is a multi-value label that can't be tested with nodeSelector
+			v1.LabelInstanceSuffix,
 		)).UnsortedList(), lo.Keys(karpv1.NormalizedLabels)...)))
 
 		var pods []*corev1.Pod
@@ -331,6 +333,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 					v1.LabelInstanceAcceleratorCount,
 					v1.LabelInstanceAcceleratorName,
 					v1.LabelInstanceAcceleratorManufacturer,
+					// instance-suffix is a multi-value label that can't be tested with nodeSelector
+					v1.LabelInstanceSuffix,
 					corev1.LabelWindowsBuild,
 				)).UnsortedList(), lo.Keys(karpv1.NormalizedLabels)...)))
 
@@ -387,6 +391,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 			v1.LabelInstanceGPUManufacturer,
 			v1.LabelInstanceGPUMemory,
 			v1.LabelInstanceLocalNVME,
+			// instance-suffix is not set for inf2.xlarge (no suffix after generation)
+			v1.LabelInstanceSuffix,
 			corev1.LabelWindowsBuild,
 		)).UnsortedList(), lo.Keys(karpv1.NormalizedLabels)...)
 		Expect(lo.Keys(nodeSelector)).To(ContainElements(expectedLabels))
